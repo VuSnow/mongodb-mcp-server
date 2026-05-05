@@ -1,5 +1,3 @@
-
-```markdown
 # mongodb-mcp-server
 
 A Python-based MongoDB MCP server built with [FastMCP](https://github.com/jlowin/fastmcp).
