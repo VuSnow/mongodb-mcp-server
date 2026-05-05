@@ -1,0 +1,5 @@
+[project]
+name = "mongodb-mcp-server"
+version = "0.1.0"
+description = "A FastMCP Server for MongoDB interaction."
+requires-python = ">=3.11"
