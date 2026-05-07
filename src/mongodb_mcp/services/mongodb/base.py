@@ -23,9 +23,9 @@ class BaseMongoDBService:
     async def _ensure_connected(self) -> MongoDBClient:
         """Auto-connect if not connected. Returns the active client."""
         if connection_manager.state != ConnectionState.CONNECTED:
-            # logger.info("[connection] State=%s — initiating auto-connect", connection_manager.state.value)
+            # logger.info(f"[connection] State={connection_manager.state.value} — initiating auto-connect")
             await connection_manager.connect()
-            logger.info("[connection] Auto-connect successful")
+            logger.info(f"[connection] Auto-connect successful")
         return connection_manager.get_client()
 
     def _check_write_allowed(self) -> None:
@@ -34,10 +34,48 @@ class BaseMongoDBService:
             logger.warning("[policy] Write operation blocked — server is in READ_ONLY mode")
             raise PermissionError("Write operations are disabled in read-only mode.")
 
+    def _check_write_target(self, database: str, collection: str | None = None) -> None:
+        """Raise if the target db.collection is not in the write allowlist.
+
+        Rules:
+        - WRITE_ALLOWLIST not set or empty → allow all
+        - "*" → allow all
+        - "db.*" → allow all collections in that db
+        - "db.col" → exact match only
+        """
+        allowlist_raw = configs.write_allowlist
+        if not allowlist_raw or allowlist_raw.strip() == "":
+            return  # not configured → allow all
+
+        patterns = [p.strip() for p in allowlist_raw.split(",") if p.strip()]
+        if not patterns:
+            return  # empty after parsing → allow all
+
+        if "*" in patterns:
+            return  # explicit allow-all
+
+        target = f"{database}.{collection}" if collection else f"{database}.*"
+
+        for pattern in patterns:
+            if pattern == target:
+                return  # exact match
+            # "db.*" matches any collection in that db
+            if pattern.endswith(".*"):
+                allowed_db = pattern[:-2]
+                if allowed_db == database:
+                    return
+
+        # No match — block
+        logger.warning(f"[policy] Write blocked — target '{target}' not in allowlist: {patterns}")
+        raise PermissionError(
+            f"Write to '{target}' is not allowed. "
+            f"Allowed targets: {', '.join(patterns)}"
+        )
+
     def _validate_name(self, value: str, label: str = "name") -> None:
         """Raise if name is empty or whitespace."""
         if not value or not value.strip():
-            logger.warning("[validation] %s is empty or whitespace", label)
+            logger.warning(f"[validation] {label} is empty or whitespace")
             raise ValueError(f"{label} is required and cannot be empty.")
 
     async def _resolve_name(
@@ -59,13 +97,13 @@ class BaseMongoDBService:
           3. Word match → catch partial/substring (user log → user_logs)
           4. Fallback → return first N available names
         """
-        logger.debug("[resolve] Resolving name='%s' against available list", name)
+        logger.debug(f"[resolve] Resolving name='{name}' against available list")
         available = await fetch_available()
-        logger.debug("[resolve] Available names (%d): %s", len(available), available[:10])
+        logger.debug(f"[resolve] Available names ({len(available)}): {available[:10]}")
 
         # Name exists in DB — not a typo, data is genuinely empty/error is unrelated
         if name in available:
-            logger.debug("[resolve] name='%s' found — data is genuinely empty", name)
+            logger.debug(f"[resolve] name='{name}' found — data is genuinely empty")
             return ResolveResult(found=True, name=name)
 
         # Name does NOT exist — find suggestions for user to confirm
@@ -73,7 +111,7 @@ class BaseMongoDBService:
         # Strategy 1: difflib — catches character-level typos (uesrs → users)
         suggestions = get_close_matches(name, available, n=max_suggestions, cutoff=cutoff)
         if suggestions:
-            logger.info("[resolve] name='%s' not found — difflib suggestions: %s", name, suggestions)
+            logger.info(f"[resolve] name='{name}' not found — difflib suggestions: {suggestions}")
 
         # Strategy 2: word match — catches partial/substring (user log → user_logs)
         if not suggestions:
@@ -84,12 +122,12 @@ class BaseMongoDBService:
                     if any(w.lower() in item.lower() for w in words)
                 ][:max_suggestions]
                 if suggestions:
-                    logger.info("[resolve] name='%s' not found — word-match suggestions (words=%s): %s", name, words, suggestions)
+                    logger.info(f"[resolve] name='{name}' not found — word-match suggestions (words={words}): {suggestions}")
 
         # Strategy 3: fallback — nothing matched, show what's available
         if not suggestions:
             suggestions = available[:max_suggestions]
-            logger.info("[resolve] name='%s' not found — no close match, showing available: %s", name, suggestions)
+            logger.info(f"[resolve] name='{name}' not found — no close match, showing available: {suggestions}")
 
-        logger.warning("[resolve] Name '%s' does not exist. Returning %d suggestions for user confirmation", name, len(suggestions))
+        logger.warning(f"[resolve] Name '{name}' does not exist. Returning {len(suggestions)} suggestions for user confirmation")
         return ResolveResult(found=False, name=name, suggestions=suggestions)

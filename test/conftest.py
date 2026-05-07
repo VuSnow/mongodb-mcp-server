@@ -58,4 +58,5 @@ def patch_configs():
         mock_configs.read_only = True
         mock_configs.default_timeout_ms = 30000
         mock_configs.connection_string = "mongodb://localhost:27017"
+        mock_configs.write_allowlist = None
         yield mock_configs

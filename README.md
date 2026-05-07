@@ -132,6 +132,45 @@ fastmcp run src/mongodb_mcp/server.py:mcp
 fastmcp dev src/mongodb_mcp/server.py:mcp
 ```
 
+## MCP Inspector
+
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a browser-based tool for interactively testing MCP servers and their tools.
+
+```bash
+# Run MCP Inspector against this server (npx, no install required)
+npx @modelcontextprotocol/inspector fastmcp run src/mongodb_mcp/server.py:mcp
+```
+
+Then open `http://localhost:6274` in your browser. From there you can:
+- Browse all registered tools and their input schemas
+- Call tools manually and inspect structured responses
+- Debug tool outputs without needing a full MCP client
+
+> **Note**: Set `MONGODB_CONNECTION_STRING` in your environment or `.env` file before running.
+
+### Install Node.js (required for npx)
+
+**macOS**
+```bash
+brew install node
+```
+
+**Ubuntu / Debian**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**Windows**
+
+Download and run the installer from [nodejs.org](https://nodejs.org).
+
+Verify installation:
+```bash
+node --version   # should be ≥ 18
+npx --version
+```
+
 ## Testing
 
 ```bash
@@ -162,6 +201,31 @@ Environment variables (or `.env` file):
 | `MONGODB_CONNECTION_STRING` | *(required)* | MongoDB connection URI |
 | `READ_ONLY` | `true` | Only allow read/metadata operations |
 | `DEFAULT_TIMEOUT_MS` | `30000` | Default timeout for MongoDB operations |
+| `WRITE_ALLOWLIST` | *(unset)* | Comma-separated `db.collection` patterns allowed for writes (see below) |
+
+### Write Allowlist
+
+When `READ_ONLY=false`, you can further restrict which databases/collections accept writes:
+
+```bash
+# Allow specific targets
+WRITE_ALLOWLIST=mydb.users,mydb.orders,testdb.*
+
+# Allow all collections in a database
+WRITE_ALLOWLIST=prod.*
+
+# Explicit allow-all
+WRITE_ALLOWLIST=*
+
+# Not set or empty → allow all (backward compatible)
+```
+
+| Pattern | Meaning |
+|---------|---------|
+| `db.col` | Exact match only |
+| `db.*` | All collections in that database |
+| `*` | Allow all writes |
+| *(empty/unset)* | Allow all writes (backward compatible) |
 
 ## Tech Stack
 

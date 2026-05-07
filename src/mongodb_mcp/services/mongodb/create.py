@@ -12,8 +12,9 @@ class CreateService(BaseMongoDBService):
     """Service for create operations. Enforces write policy and validates input."""
 
     async def insert_one(self, database: str, collection: str, document: Dict[str, Any]) -> Dict[str, Any]:
-        logger.info("[insert_one] db='%s', collection='%s'", database, collection)
+        logger.info(f"[insert_one] db='{database}', collection='{collection}'")
         self._check_write_allowed()
+        self._check_write_target(database, collection)
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
 
@@ -26,17 +27,18 @@ class CreateService(BaseMongoDBService):
         try:
             result = await client.insert_one(database, collection, document)
         except Exception as e:
-            logger.error("[insert_one] Exception for %s.%s: %s", database, collection, e, exc_info=True)
+            logger.error(f"[insert_one] Exception for {database}.{collection}: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
-        logger.info("[insert_one] Inserted id=%s into %s.%s", result.inserted_id, database, collection)
+        logger.info(f"[insert_one] Inserted id={result.inserted_id} into {database}.{collection}")
         return {"status": "ok", "inserted_id": str(result.inserted_id)}
 
     async def insert_many(
         self, database: str, collection: str, documents: List[Dict[str, Any]], ordered: bool = False,
     ) -> Dict[str, Any]:
-        logger.info("[insert_many] db='%s', collection='%s', count=%d, ordered=%s", database, collection, len(documents), ordered)
+        logger.info(f"[insert_many] db='{database}', collection='{collection}', count={len(documents)}, ordered={ordered}")
         self._check_write_allowed()
+        self._check_write_target(database, collection)
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
 
@@ -53,16 +55,17 @@ class CreateService(BaseMongoDBService):
         try:
             result = await client.insert_many(database, collection, documents, ordered=ordered)
         except Exception as e:
-            logger.error("[insert_many] Exception for %s.%s: %s", database, collection, e, exc_info=True)
+            logger.error(f"[insert_many] Exception for {database}.{collection}: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
         inserted_ids = [str(id_) for id_ in result.inserted_ids]
-        logger.info("[insert_many] Inserted %d documents into %s.%s", len(inserted_ids), database, collection)
+        logger.info(f"[insert_many] Inserted {len(inserted_ids)} documents into {database}.{collection}")
         return {"status": "ok", "inserted_count": len(inserted_ids), "inserted_ids": inserted_ids}
 
     async def create_collection(self, database: str, collection: str) -> Dict[str, Any]:
-        logger.info("[create_collection] db='%s', collection='%s'", database, collection)
+        logger.info(f"[create_collection] db='{database}', collection='{collection}'")
         self._check_write_allowed()
+        self._check_write_target(database, collection)
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
 
@@ -71,16 +74,16 @@ class CreateService(BaseMongoDBService):
         # Check if collection already exists
         existing = await client.list_collection_names(database)
         if collection in existing:
-            logger.warning("[create_collection] Collection '%s' already exists in db='%s'", collection, database)
+            logger.warning(f"[create_collection] Collection '{collection}' already exists in db='{database}'")
             return {"status": "error", "message": f"Collection '{collection}' already exists in database '{database}'."}
 
         try:
             await client.create_collection(database, collection)
         except Exception as e:
-            logger.error("[create_collection] Exception: %s", e, exc_info=True)
+            logger.error(f"[create_collection] Exception: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
-        logger.info("[create_collection] Created %s.%s", database, collection)
+        logger.info(f"[create_collection] Created {database}.{collection}")
         return {"status": "ok", "database": database, "collection": collection}
 
     async def create_index(
@@ -91,8 +94,9 @@ class CreateService(BaseMongoDBService):
         unique: bool = False,
         name: str | None = None,
     ) -> Dict[str, Any]:
-        logger.info("[create_index] db='%s', collection='%s', keys=%s, unique=%s", database, collection, keys, unique)
+        logger.info(f"[create_index] db='{database}', collection='{collection}', keys={keys}, unique={unique}")
         self._check_write_allowed()
+        self._check_write_target(database, collection)
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
 
@@ -112,7 +116,7 @@ class CreateService(BaseMongoDBService):
         if collection not in existing:
             not_found = await self._resolve_name(collection, lambda: client.list_collection_names(database))
             if not not_found.found:
-                logger.warning("[create_index] Collection '%s' not found in db='%s'", collection, database)
+                logger.warning(f"[create_index] Collection '{collection}' not found in db='{database}'")
                 return {
                     "status": "not_found",
                     "label": "Collection",
@@ -123,8 +127,8 @@ class CreateService(BaseMongoDBService):
         try:
             index_name = await client.create_index(database, collection, key_tuples, unique=unique, name=name)
         except Exception as e:
-            logger.error("[create_index] Exception: %s", e, exc_info=True)
+            logger.error(f"[create_index] Exception: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
-        logger.info("[create_index] Created index '%s' on %s.%s", index_name, database, collection)
+        logger.info(f"[create_index] Created index '{index_name}' on {database}.{collection}")
         return {"status": "ok", "index_name": index_name, "database": database, "collection": collection}

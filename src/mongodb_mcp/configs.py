@@ -26,6 +26,16 @@ class ServerConfigs(BaseSettings):
         description="Default timeout in milliseconds for MongoDB operations.",
     )
 
+    write_allowlist: Optional[str] = Field(
+        None,
+        alias="WRITE_ALLOWLIST",
+        description=(
+            "Comma-separated list of db.collection patterns allowed for write operations. "
+            "Patterns: 'db.col' (exact), 'db.*' (all collections in db), '*' (allow all). "
+            "Empty or unset = allow all (when READ_ONLY=false)."
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_file=ROOT_DIR / ".env",
         env_file_encoding="utf-8",

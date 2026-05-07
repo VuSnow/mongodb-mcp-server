@@ -17,12 +17,12 @@ class MetadataService(BaseMongoDBService):
 
     async def _resolve_db_and_collection(self, database: str, collection: str) -> Dict[str, Any] | None:
         """Resolve DB then collection. Returns not_found dict or None if both exist."""
-        logger.info("[resolve] Checking existence of db='%s', collection='%s'", database, collection)
+        logger.info(f"[resolve] Checking existence of db='{database}', collection='{collection}'")
         client = await self._ensure_connected()
 
         db_result = await self._resolve_name(database, self._get_db_names)
         if not db_result.found:
-            logger.warning("[resolve] Database '%s' not found — suggesting alternatives", database)
+            logger.warning(f"[resolve] Database '{database}' not found — suggesting alternatives")
             return {
                 "status": "not_found",
                 "label": "Database",
@@ -35,7 +35,7 @@ class MetadataService(BaseMongoDBService):
             lambda: client.list_collection_names(database),
         )
         if not col_result.found:
-            logger.warning("[resolve] Collection '%s' not found in db='%s' — suggesting alternatives", collection, database)
+            logger.warning(f"[resolve] Collection '{collection}' not found in db='{database}' — suggesting alternatives")
             return {
                 "status": "not_found",
                 "label": "Collection",
@@ -43,7 +43,7 @@ class MetadataService(BaseMongoDBService):
                 "suggestions": col_result.suggestions,
             }
 
-        logger.debug("[resolve] Both db='%s' and collection='%s' exist", database, collection)
+        logger.debug(f"[resolve] Both db='{database}' and collection='{collection}' exist")
         return None
 
     # ── No resolve ──
@@ -52,21 +52,21 @@ class MetadataService(BaseMongoDBService):
         logger.info("[list_databases] Fetching all databases")
         client = await self._ensure_connected()
         databases = await client.list_database_names()
-        logger.info("[list_databases] Found %d databases", len(databases))
+        logger.info(f"[list_databases] Found {len(databases)} databases")
         return {"status": "ok", "databases": databases}
 
     async def list_collections(self, database: str) -> dict[str, Any]:
-        logger.info("[list_collections] db='%s'", database)
+        logger.info(f"[list_collections] db='{database}'")
         self._validate_name(database, "Database name")
         client = await self._ensure_connected()
         collections = await client.list_collection_names(database)
-        logger.info("[list_collections] db='%s' — found %d collections", database, len(collections))
+        logger.info(f"[list_collections] db='{database}' — found {len(collections)} collections")
         return {"status": "ok", "database": database, "collections": collections}
 
     async def get_logs(self, log_type: str = "global", limit: int = 50) -> dict[str, Any]:
-        logger.info("[get_logs] type='%s', limit=%d", log_type, limit)
+        logger.info(f"[get_logs] type='{log_type}', limit={limit}")
         if log_type not in ("global", "startupWarnings"):
-            logger.warning("[get_logs] Invalid log_type='%s'", log_type)
+            logger.warning(f"[get_logs] Invalid log_type='{log_type}'")
             return {
                 "status": "error",
                 "message": f"Invalid log_type: {log_type}. Use: global, startupWarnings",
@@ -74,13 +74,13 @@ class MetadataService(BaseMongoDBService):
         limit = max(1, min(limit, 1000))
         client = await self._ensure_connected()
         logs = await client.get_logs(log_type, limit)
-        logger.info("[get_logs] Returned %d log lines", len(logs.get("logs", [])))
+        logger.info(f"[get_logs] Returned {len(logs.get('logs', []))} log lines")
         return {"status": "ok", **logs}
 
     # ── Lazy resolve on empty/error ──
 
     async def collection_schema(self, database: str, collection: str, sample_size: int = 20) -> Dict[str, Any]:
-        logger.info("[collection_schema] db='%s', collection='%s', sample_size=%d", database, collection, sample_size)
+        logger.info(f"[collection_schema] db='{database}', collection='{collection}', sample_size={sample_size}")
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
         sample_size = max(1, min(sample_size, 100))
@@ -93,18 +93,18 @@ class MetadataService(BaseMongoDBService):
         )
 
         if not documents:
-            logger.info("[collection_schema] Empty result for %s.%s — triggering resolve", database, collection)
+            logger.info(f"[collection_schema] Empty result for {database}.{collection} — triggering resolve")
             not_found = await self._resolve_db_and_collection(database=database, collection=collection)
             if not_found:
                 return not_found
-            logger.info("[collection_schema] %s.%s exists but is genuinely empty", database, collection)
+            logger.info(f"[collection_schema] {database}.{collection} exists but is genuinely empty")
             return {"status": "ok", "documents": []}
 
-        logger.info("[collection_schema] Returned %d documents from %s.%s", len(documents), database, collection)
+        logger.info(f"[collection_schema] Returned {len(documents)} documents from {database}.{collection}")
         return {"status": "ok", "documents": documents}
 
     async def collection_indexes(self, database: str, collection: str) -> Dict[str, Any]:
-        logger.info("[collection_indexes] db='%s', collection='%s'", database, collection)
+        logger.info(f"[collection_indexes] db='{database}', collection='{collection}'")
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
         client = await self._ensure_connected()
@@ -112,28 +112,28 @@ class MetadataService(BaseMongoDBService):
         indexes = await client.collection_indexes(database=database, collection=collection)
 
         if not indexes:
-            logger.info("[collection_indexes] Empty result for %s.%s — triggering resolve", database, collection)
+            logger.info(f"[collection_indexes] Empty result for {database}.{collection} — triggering resolve")
             not_found = await self._resolve_db_and_collection(database=database, collection=collection)
             if not_found:
                 return not_found
-            logger.info("[collection_indexes] %s.%s exists but has no indexes", database, collection)
+            logger.info(f"[collection_indexes] {database}.{collection} exists but has no indexes")
             return {"status": "ok", "indexes": []}
 
-        logger.info("[collection_indexes] Found %d indexes on %s.%s", len(indexes), database, collection)
+        logger.info(f"[collection_indexes] Found {len(indexes)} indexes on {database}.{collection}")
         return {"status": "ok", "indexes": indexes}
 
     async def db_stats(self, database: str) -> Dict[str, Any]:
-        logger.info("[db_stats] db='%s'", database)
+        logger.info(f"[db_stats] db='{database}'")
         self._validate_name(database, "Database name")
         client = await self._ensure_connected()
 
         try:
             stats = await client.db_stats(database)
         except Exception as e:
-            logger.error("[db_stats] Exception for db='%s': %s", database, e, exc_info=True)
+            logger.error(f"[db_stats] Exception for db='{database}': {e}", exc_info=True)
             db_result = await self._resolve_name(database, self._get_db_names)
             if not db_result.found:
-                logger.warning("[db_stats] Database '%s' does not exist — returning suggestions", database)
+                logger.warning(f"[db_stats] Database '{database}' does not exist — returning suggestions")
                 return {
                     "status": "not_found",
                     "label": "Database",
@@ -143,23 +143,23 @@ class MetadataService(BaseMongoDBService):
             # DB exists but unknown error — re-raise
             raise
 
-        logger.info("[db_stats] Success for db='%s'", database)
+        logger.info(f"[db_stats] Success for db='{database}'")
         return {"status": "ok", "stats": stats}
 
     async def explain(self, database: str, collection: str, method: str, args: Dict[str, Any], verbosity: str = "queryPlanner") -> Dict[str, Any]:
-        logger.info("[explain] db='%s', collection='%s', method='%s', verbosity='%s'", database, collection, method, verbosity)
+        logger.info(f"[explain] db='{database}', collection='{collection}', method='{method}', verbosity='{verbosity}'")
         self._validate_name(database, "Database name")
         self._validate_name(collection, "Collection name")
 
         if method not in ("find", "aggregate", "count"):
-            logger.warning("[explain] Invalid method='%s'", method)
+            logger.warning(f"[explain] Invalid method='{method}'")
             return {
                 "status": "error",
                 "message": f"Unsupported method: {method}. Use: find, aggregate, count",
             }
 
         if verbosity not in ("queryPlanner", "queryPlannerExtended", "executionStats", "allPlansExecution"):
-            logger.warning("[explain] Invalid verbosity='%s'", verbosity)
+            logger.warning(f"[explain] Invalid verbosity='{verbosity}'")
             return {
                 "status": "error",
                 "message": f"Unsupported verbosity: {verbosity}. Use: queryPlanner, executionStats, allPlansExecution",
@@ -176,12 +176,12 @@ class MetadataService(BaseMongoDBService):
                 verbosity=verbosity,
             )
         except Exception as e:
-            logger.error("[explain] Exception for %s.%s method='%s': %s", database, collection, method, e, exc_info=True)
+            logger.error(f"[explain] Exception for {database}.{collection} method='{method}': {e}", exc_info=True)
             not_found = await self._resolve_db_and_collection(database, collection)
             if not_found:
                 return not_found
             # Names exist but unknown error — re-raise
             raise
 
-        logger.info("[explain] Success for %s.%s method='%s'", database, collection, method)
+        logger.info(f"[explain] Success for {database}.{collection} method='{method}'")
         return {"status": "ok", "plan": plan}

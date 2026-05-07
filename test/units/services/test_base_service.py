@@ -84,6 +84,73 @@ class TestValidateName:
             service._validate_name("", "Collection name")
 
 
+class TestCheckWriteTarget:
+    """Tests for _check_write_target."""
+
+    def test_allows_all_when_not_configured(self, patch_configs):
+        """No allowlist configured → allow all."""
+        patch_configs.write_allowlist = None
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "users")  # no exception
+
+    def test_allows_all_when_empty_string(self, patch_configs):
+        """Empty string → allow all."""
+        patch_configs.write_allowlist = ""
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "users")  # no exception
+
+    def test_allows_all_with_star(self, patch_configs):
+        """'*' → allow all."""
+        patch_configs.write_allowlist = "*"
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "users")  # no exception
+
+    def test_allows_exact_match(self, patch_configs):
+        """Exact db.collection match → allow."""
+        patch_configs.write_allowlist = "mydb.users,mydb.orders"
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "users")  # no exception
+
+    def test_allows_db_wildcard(self, patch_configs):
+        """'db.*' matches any collection in that db."""
+        patch_configs.write_allowlist = "mydb.*,prod.logs"
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "anything")  # no exception
+
+    def test_blocks_unlisted_target(self, patch_configs):
+        """Target not in allowlist → raise PermissionError."""
+        patch_configs.write_allowlist = "mydb.users,mydb.orders"
+        service = BaseMongoDBService()
+        with pytest.raises(PermissionError, match="not allowed"):
+            service._check_write_target("mydb", "admin_logs")
+
+    def test_blocks_wrong_db(self, patch_configs):
+        """Different database not in allowlist → raise."""
+        patch_configs.write_allowlist = "mydb.*"
+        service = BaseMongoDBService()
+        with pytest.raises(PermissionError, match="not allowed"):
+            service._check_write_target("other_db", "users")
+
+    def test_error_message_shows_allowed(self, patch_configs):
+        """Error message lists allowed targets."""
+        patch_configs.write_allowlist = "prod.users,prod.orders"
+        service = BaseMongoDBService()
+        with pytest.raises(PermissionError, match="prod.users"):
+            service._check_write_target("dev", "users")
+
+    def test_collection_none_uses_db_wildcard(self, patch_configs):
+        """When collection is None, target is 'db.*' — matches db.* pattern."""
+        patch_configs.write_allowlist = "mydb.*"
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", None)  # no exception
+
+    def test_whitespace_in_patterns_trimmed(self, patch_configs):
+        """Spaces around patterns are trimmed."""
+        patch_configs.write_allowlist = " mydb.users , mydb.orders "
+        service = BaseMongoDBService()
+        service._check_write_target("mydb", "users")  # no exception
+
+
 class TestResolveName:
     """Tests for _resolve_name."""
 
