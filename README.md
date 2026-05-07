@@ -169,17 +169,17 @@ Environment variables (or `.env` file):
 
 ## Available Tools
 
-| Tool | Description | Resolves names? |
-|------|-------------|-----------------|
-| `connect` | Connect to a MongoDB instance | — |
-| `disconnect` | Disconnect from MongoDB | — |
-| `list_databases` | List all databases with size | No |
-| `list_collections` | List collections in a database | No |
-| `collection_schema` | Sample documents to infer schema | Yes (lazy) |
-| `collection_indexes` | List indexes for a collection | Yes (lazy) |
-| `db_stats` | Get database statistics | Yes (lazy) |
-| `explain_query` | Explain a query plan (find/aggregate/count) | Yes (lazy) |
-| `get_logs` | Get MongoDB server log entries | No |
+| Tool | Description | Params | Resolves names? |
+|------|-------------|--------|-----------------|
+| `connect` | Connect to a MongoDB instance | <ul><li>`connection_string` — MongoDB URI. Default: from env</li></ul> | — |
+| `disconnect` | Disconnect from MongoDB | *(none)* | — |
+| `list_databases` | List all databases with size | *(none)* | No |
+| `list_collections` | List collections in a database | <ul><li>`database` — Database name</li></ul> | No |
+| `collection_schema` | Sample documents to infer schema | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`sample_size` — Number of docs to sample. Default: `20`</li></ul> | Yes (lazy) |
+| `collection_indexes` | List indexes for a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li></ul> | Yes (lazy) |
+| `db_stats` | Get database statistics | <ul><li>`database` — Database name</li></ul> | Yes (lazy) |
+| `explain_query` | Explain a query plan (find/aggregate/count) | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`method` — One of: `find`, `aggregate`, `count`</li><li>`args` — JSON string of method arguments</li><li>`verbosity` — Detail level. Default: `"queryPlanner"`</li></ul> | Yes (lazy) |
+| `get_logs` | Get MongoDB server log entries | <ul><li>`log_type` — Log category. Default: `"global"`</li><li>`limit` — Max lines to return. Default: `50`</li></ul> | No |
 
 > **Lazy resolve**: On happy path (correct name, data exists), no extra queries. Only when results are empty/error does the service resolve names and suggest fuzzy alternatives for user confirmation.
 
