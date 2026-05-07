@@ -54,21 +54,24 @@ mongodb-mcp-server/
 │       │   └── mongodb/                    # MongoDB service layer (mixin-based)
 │       │       ├── __init__.py             # MongoDBService (composed) + singleton
 │       │       ├── base.py                 # BaseMongoDBService (ensure_connected, resolve_name, validation)
-│       │       └── metadata.py             # MetadataService (list, schema, indexes, stats, explain, logs)
+│       │       ├── metadata.py             # MetadataService (list, schema, indexes, stats, explain, logs)
+│       │       └── create.py              # CreateService (insert, create_collection, create_index)
 │       │
 │       └── tools/                          # Tool definitions (thin layer, delegates to services)
 │           ├── __init__.py
 │           └── mongodb.py                  # All MongoDB MCP tools (connection + metadata)
 │
-└── tests/
+└── test/
     ├── conftest.py                         # Shared fixtures, env setup
-    └── unit/
+    └── units/
         ├── services/
         │   ├── test_base_service.py
         │   ├── test_connection_manager.py
-        │   └── test_metadata_service.py
+        │   ├── test_metadata_service.py
+        │   └── test_create_service.py
         └── tools/
-            └── test_metadata_tools.py
+            ├── test_metadata_tools.py
+            └── test_create_tools.py
 ```
 
 ## Architecture
@@ -111,7 +114,7 @@ mongodb-mcp-server/
 | 1 | ✅ Done | Project setup: `pyproject.toml`, FastMCP server skeleton, config |
 | 2 | ✅ Done | Client layer: `MongoDBClient` (mixin-based) + `ConnectionManager` |
 | 3 | ✅ Done | Service layer + Metadata tools: list-databases, list-collections, collection-schema, db-stats, collection-indexes, explain, logs |
-| 4 | 🔲 Next | CRUD tools: find, aggregate, count, insert, update, delete, drop |
+| 4 | � In Progress | CRUD tools: ✅ create (insert, create_collection, create_index) · 🔲 read · 🔲 update · 🔲 delete |
 
 ## Quick Start
 
@@ -136,16 +139,16 @@ fastmcp dev src/mongodb_mcp/server.py:mcp
 pip install -e ".[dev]"
 
 # Run all unit tests
-python -m pytest tests/unit/ -v
+python -m pytest test/units/ -v
 
 # Run specific test file
-python -m pytest tests/unit/services/test_base_service.py -v
+python -m pytest test/units/services/test_base_service.py -v
 
 # Run with short traceback
-python -m pytest tests/unit/ --tb=short
+python -m pytest test/units/ --tb=short
 
 # Run with coverage (if pytest-cov installed)
-python -m pytest tests/unit/ --cov=mongodb_mcp --cov-report=term-missing
+python -m pytest test/units/ --cov=mongodb_mcp --cov-report=term-missing
 ```
 
 > **Note**: Tests mock all MongoDB interactions — no running MongoDB instance required for unit tests.
@@ -180,8 +183,14 @@ Environment variables (or `.env` file):
 | `db_stats` | Get database statistics | <ul><li>`database` — Database name</li></ul> | Yes (lazy) |
 | `explain_query` | Explain a query plan (find/aggregate/count) | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`method` — One of: `find`, `aggregate`, `count`</li><li>`args` — JSON string of method arguments</li><li>`verbosity` — Detail level. Default: `"queryPlanner"`</li></ul> | Yes (lazy) |
 | `get_logs` | Get MongoDB server log entries | <ul><li>`log_type` — Log category. Default: `"global"`</li><li>`limit` — Max lines to return. Default: `50`</li></ul> | No |
+| `insert_one` | Insert a single document | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`document` — JSON string of document</li></ul> | No |
+| `insert_many` | Insert multiple documents | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`documents` — JSON array of documents</li><li>`ordered` — Ordered insert. Default: `false`</li></ul> | No |
+| `create_collection` | Create a new collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li></ul> | No |
+| `create_index` | Create an index on a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`keys` — JSON array of `[field, direction]` pairs</li><li>`unique` — Unique index. Default: `false`</li><li>`name` — Custom index name (optional)</li></ul> | Yes (lazy) |
 
 > **Lazy resolve**: On happy path (correct name, data exists), no extra queries. Only when results are empty/error does the service resolve names and suggest fuzzy alternatives for user confirmation.
+>
+> **Write tools** require `READ_ONLY=false` in configuration.
 
 ## License
 
