@@ -166,3 +166,108 @@ async def get_logs(log_type: str = "global", limit: int = 50) -> str:
     except (ConnectionError, ValueError) as e:
         logger.error("[tool:get_logs] %s", e)
         return f"Error: {e}"
+
+
+# ── Create Tools ─────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+async def insert_one(database: str, collection: str, document: str) -> str:
+    """Insert a single document into a collection. document: JSON string of the document to insert."""
+    logger.info("[tool:insert_one] Called with db='%s', col='%s'", database, collection)
+    try:
+        parsed_doc = json.loads(document)
+    except json.JSONDecodeError as e:
+        logger.warning("[tool:insert_one] Invalid JSON document: %s", e)
+        return "Error: document must be a valid JSON string."
+
+    try:
+        result = await mongodb_service.insert_one(database, collection, parsed_doc)
+
+        if result["status"] == "error":
+            return f"Error: {result['message']}"
+
+        logger.info("[tool:insert_one] Inserted id=%s", result["inserted_id"])
+        return f"Inserted 1 document into {database}.{collection}.\nInserted ID: {result['inserted_id']}"
+    except (ConnectionError, ValueError, PermissionError) as e:
+        logger.error("[tool:insert_one] %s", e)
+        return f"Error: {e}"
+
+
+@mcp.tool()
+async def insert_many(database: str, collection: str, documents: str, ordered: bool = False) -> str:
+    """Insert multiple documents into a collection. documents: JSON array of documents."""
+    logger.info("[tool:insert_many] Called with db='%s', col='%s', ordered=%s", database, collection, ordered)
+    try:
+        parsed_docs = json.loads(documents)
+    except json.JSONDecodeError as e:
+        logger.warning("[tool:insert_many] Invalid JSON: %s", e)
+        return "Error: documents must be a valid JSON array."
+
+    if not isinstance(parsed_docs, list):
+        return "Error: documents must be a JSON array of objects."
+
+    try:
+        result = await mongodb_service.insert_many(database, collection, parsed_docs, ordered=ordered)
+
+        if result["status"] == "error":
+            return f"Error: {result['message']}"
+
+        count = result["inserted_count"]
+        logger.info("[tool:insert_many] Inserted %d documents", count)
+        return f"Inserted {count} documents into {database}.{collection}.\nInserted IDs: {json.dumps(result['inserted_ids'])}"
+    except (ConnectionError, ValueError, PermissionError) as e:
+        logger.error("[tool:insert_many] %s", e)
+        return f"Error: {e}"
+
+
+@mcp.tool()
+async def create_collection(database: str, collection: str) -> str:
+    """Create a new collection in a database."""
+    logger.info("[tool:create_collection] Called with db='%s', col='%s'", database, collection)
+    try:
+        result = await mongodb_service.create_collection(database, collection)
+
+        if result["status"] == "error":
+            return f"Error: {result['message']}"
+
+        logger.info("[tool:create_collection] Created %s.%s", database, collection)
+        return f"Collection '{collection}' created in database '{database}'."
+    except (ConnectionError, ValueError, PermissionError) as e:
+        logger.error("[tool:create_collection] %s", e)
+        return f"Error: {e}"
+
+
+@mcp.tool()
+async def create_index(
+    database: str,
+    collection: str,
+    keys: str,
+    unique: bool = False,
+    name: str | None = None,
+) -> str:
+    """Create an index on a collection. keys: JSON array of [field, direction] pairs. Example: '[["name", 1], ["age", -1]]'"""
+    logger.info("[tool:create_index] Called with db='%s', col='%s', unique=%s", database, collection, unique)
+    try:
+        parsed_keys = json.loads(keys)
+    except json.JSONDecodeError as e:
+        logger.warning("[tool:create_index] Invalid JSON keys: %s", e)
+        return "Error: keys must be a valid JSON array of [field, direction] pairs."
+
+    if not isinstance(parsed_keys, list):
+        return "Error: keys must be a JSON array. Example: '[[\"name\", 1], [\"age\", -1]]'"
+
+    try:
+        result = await mongodb_service.create_index(database, collection, parsed_keys, unique=unique, name=name)
+
+        if result["status"] == "not_found":
+            return _format_not_found(result)
+        if result["status"] == "error":
+            return f"Error: {result['message']}"
+
+        index_name = result["index_name"]
+        logger.info("[tool:create_index] Created index '%s'", index_name)
+        return f"Index '{index_name}' created on {database}.{collection}."
+    except (ConnectionError, ValueError, PermissionError) as e:
+        logger.error("[tool:create_index] %s", e)
+        return f"Error: {e}"

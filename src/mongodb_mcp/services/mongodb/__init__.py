@@ -1,7 +1,9 @@
 from .metadata import MetadataService
+from .create import CreateService
 
-class MongoDBService(MetadataService):
-    """Full MongoDB service. Add more mixins (ReadService, CreateService, ...) in later phases."""
+
+class MongoDBService(MetadataService, CreateService):
+    """Full MongoDB service. Combines all operation mixins."""
     pass
 
 mongodb_service = MongoDBService()
