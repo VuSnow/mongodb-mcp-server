@@ -1,6 +1,6 @@
-# mongodb-mcp-server
+# MongoDB-FastMCP-Server
 
-A Python-based MongoDB MCP server built with [FastMCP](https://github.com/jlowin/fastmcp).
+A Python-based MongoDB MCP server built with [FastMCP](https://github.com/PrefectHQ/fastmcp).
 
 This repository exposes MongoDB operations as MCP tools, allowing MCP-compatible clients and AI agents to connect to MongoDB, inspect databases and collections, and execute controlled database operations through a clean tool interface.
 
@@ -56,7 +56,8 @@ mongodb-mcp-server/
 │       │       ├── base.py                 # BaseMongoDBService (ensure_connected, resolve_name, validation)
 │       │       ├── metadata.py             # MetadataService (list, schema, indexes, stats, explain, logs)
 │       │       ├── read.py                 # ReadService (find, aggregate, count_documents, distinct)
-│       │       └── create.py               # CreateService (insert, create_collection, create_index)
+│       │       ├── create.py               # CreateService (insert, create_collection, create_index)
+│       │       └── update.py               # UpdateService (update_one, update_many, rename_collection)
 │       │
 │       └── tools/                          # Tool definitions (thin layer, delegates to services)
 │           ├── __init__.py
@@ -70,11 +71,13 @@ mongodb-mcp-server/
         │   ├── test_connection_manager.py
         │   ├── test_metadata_service.py
         │   ├── test_create_service.py
-        │   └── test_read_service.py
+        │   ├── test_read_service.py
+        │   └── test_update_service.py
         └── tools/
             ├── test_metadata_tools.py
             ├── test_create_tools.py
-            └── test_read_tools.py
+            ├── test_read_tools.py
+            └── test_update_tools.py
 ```
 
 ## Architecture
@@ -117,7 +120,7 @@ mongodb-mcp-server/
 | 1 | ✅ Done | Project setup: `pyproject.toml`, FastMCP server skeleton, config |
 | 2 | ✅ Done | Client layer: `MongoDBClient` (mixin-based) + `ConnectionManager` |
 | 3 | ✅ Done | Service layer + Metadata tools: list-databases, list-collections, collection-schema, db-stats, collection-indexes, collection-stats, explain, logs |
-| 4 | 🔧 In Progress | CRUD tools: ✅ create (insert, create_collection, create_index) · ✅ read (find, aggregate, count_documents, distinct) · 🔲 update · 🔲 delete |
+| 4 | 🔧 In Progress | CRUD tools: ✅ create (insert, create_collection, create_index) · ✅ read (find, aggregate, count_documents, distinct) · ✅ update (update_one, update_many, rename_collection) · 🔲 delete |
 
 ## Quick Start
 
@@ -259,6 +262,9 @@ WRITE_ALLOWLIST=*
 | `count_documents` | Count documents matching a filter | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`filter` — JSON filter. Default: `"{}"`</li></ul> | Yes (lazy) |
 | `distinct` | Get distinct values of a field | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`field` — Field name</li><li>`filter` — JSON filter. Default: `"{}"`</li></ul> | Yes (lazy) |
 | `collection_stats` | Get storage statistics for a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li></ul> | Yes (lazy) |
+| `update_one` | Update a single document matching a filter | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`filter` — JSON filter string</li><li>`update` — JSON update with operators (`$set`, `$inc`, etc.)</li><li>`upsert` — Insert if no match. Default: `false`</li></ul> | Yes (lazy) |
+| `update_many` | Update all documents matching a filter | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`filter` — JSON filter string</li><li>`update` — JSON update with operators (`$set`, `$inc`, etc.)</li><li>`upsert` — Insert if no match. Default: `false`</li></ul> | Yes (lazy) |
+| `rename_collection` | Rename a collection | <ul><li>`database` — Database name</li><li>`collection` — Current collection name</li><li>`new_name` — New collection name</li><li>`drop_target` — Overwrite if target exists. Default: `false`</li></ul> | Yes (lazy) |
 
 > **Lazy resolve**: On happy path (correct name, data exists), no extra queries. Only when results are empty/error does the service resolve names and suggest fuzzy alternatives for user confirmation.
 >

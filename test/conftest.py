@@ -59,6 +59,15 @@ def mock_mongodb_client():
         "totalIndexSize": 512000,
         "nindexes": 3,
     })
+
+    # Update mocks
+    update_result = MagicMock()
+    update_result.matched_count = 1
+    update_result.modified_count = 1
+    update_result.upserted_id = None
+    client.update_one = AsyncMock(return_value=update_result)
+    client.update_many = AsyncMock(return_value=update_result)
+    client.rename_collection = AsyncMock()
     return client
 
 
