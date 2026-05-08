@@ -206,6 +206,7 @@ Environment variables (or `.env` file):
 |----------|---------|-------------|
 | `MONGODB_CONNECTION_STRING` | *(required)* | MongoDB connection URI |
 | `READ_ONLY` | `true` | Only allow read/metadata operations |
+| `ALLOW_DESTRUCTIVE` | `false` | Allow destructive operations (delete, drop). Requires `READ_ONLY=false` |
 | `DEFAULT_TIMEOUT_MS` | `30000` | Default timeout for MongoDB operations |
 | `WRITE_ALLOWLIST` | *(unset)* | Comma-separated `db.collection` patterns allowed for writes (see below) |
 
@@ -232,6 +233,24 @@ WRITE_ALLOWLIST=*
 | `db.*` | All collections in that database |
 | `*` | Allow all writes |
 | *(empty/unset)* | Allow all writes (backward compatible) |
+
+### Security Model
+
+Write operations go through 3 policy checks:
+
+```
+_check_write_allowed()         → READ_ONLY=false?
+_check_destructive_allowed()   → ALLOW_DESTRUCTIVE=true? (delete/drop only)
+_check_write_target()          → WRITE_ALLOWLIST match?
+```
+
+| `READ_ONLY` | `ALLOW_DESTRUCTIVE` | Allowed operations |
+|---|---|---|
+| `true` (default) | *(ignored)* | Read + metadata only |
+| `false` | `false` (default) | insert, update, create_index, create_collection, rename_collection |
+| `false` | `true` | All of above + delete_one, delete_many, drop_collection, drop_database, drop_index |
+
+> `rename_collection` with `drop_target=true` also requires `ALLOW_DESTRUCTIVE=true` since it destroys the target collection.
 
 ## Tech Stack
 

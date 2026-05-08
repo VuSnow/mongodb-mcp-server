@@ -62,6 +62,33 @@ class TestCheckWriteAllowed:
         service._check_write_allowed()  # no exception
 
 
+class TestCheckDestructiveAllowed:
+    """Tests for _check_destructive_allowed."""
+
+    def test_raises_when_read_only(self, patch_configs):
+        """Should raise PermissionError when read_only=True (checked first)."""
+        patch_configs.read_only = True
+        patch_configs.allow_destructive = True
+        service = BaseMongoDBService()
+        with pytest.raises(PermissionError, match="read-only"):
+            service._check_destructive_allowed()
+
+    def test_raises_when_destructive_disabled(self, patch_configs):
+        """Should raise PermissionError when allow_destructive=False."""
+        patch_configs.read_only = False
+        patch_configs.allow_destructive = False
+        service = BaseMongoDBService()
+        with pytest.raises(PermissionError, match="ALLOW_DESTRUCTIVE"):
+            service._check_destructive_allowed()
+
+    def test_passes_when_destructive_enabled(self, patch_configs):
+        """Should not raise when read_only=False and allow_destructive=True."""
+        patch_configs.read_only = False
+        patch_configs.allow_destructive = True
+        service = BaseMongoDBService()
+        service._check_destructive_allowed()  # no exception
+
+
 class TestValidateName:
     """Tests for _validate_name."""
 

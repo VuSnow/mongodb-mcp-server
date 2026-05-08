@@ -34,6 +34,20 @@ class BaseMongoDBService:
             logger.warning("[policy] Write operation blocked — server is in READ_ONLY mode")
             raise PermissionError("Write operations are disabled in read-only mode.")
 
+    def _check_destructive_allowed(self) -> None:
+        """Raise if destructive operations are not enabled.
+
+        Destructive = data loss that cannot be undone without a backup:
+        delete_one, delete_many, drop_collection, drop_database, drop_index.
+        """
+        self._check_write_allowed()
+        if not configs.allow_destructive:
+            logger.warning("[policy] Destructive operation blocked — ALLOW_DESTRUCTIVE is disabled")
+            raise PermissionError(
+                "Destructive operations are disabled. "
+                "Set ALLOW_DESTRUCTIVE=true to enable delete/drop operations."
+            )
+
     def _check_write_target(self, database: str, collection: str | None = None) -> None:
         """Raise if the target db.collection is not in the write allowlist.
 

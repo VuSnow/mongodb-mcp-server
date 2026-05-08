@@ -86,6 +86,7 @@ def patch_configs():
     """Patch configs with default values."""
     with patch("mongodb_mcp.services.mongodb.base.configs") as mock_configs:
         mock_configs.read_only = True
+        mock_configs.allow_destructive = False
         mock_configs.default_timeout_ms = 30000
         mock_configs.connection_string = "mongodb://localhost:27017"
         mock_configs.write_allowlist = None

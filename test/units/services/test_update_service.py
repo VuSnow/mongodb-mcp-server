@@ -43,6 +43,7 @@ def patch_connected(mock_client):
 def patch_writable():
     with patch("mongodb_mcp.services.mongodb.base.configs") as mock_configs:
         mock_configs.read_only = False
+        mock_configs.allow_destructive = True
         mock_configs.write_allowlist = None
         yield mock_configs
 
@@ -166,6 +167,14 @@ class TestRenameCollection:
 
         assert result["status"] == "ok"
         mock_client.rename_collection.assert_awaited_once()
+
+    async def test_drop_target_blocked_without_allow_destructive(self, service, patch_connected):
+        with patch("mongodb_mcp.services.mongodb.base.configs") as mock_configs:
+            mock_configs.read_only = False
+            mock_configs.allow_destructive = False
+            mock_configs.write_allowlist = None
+            with pytest.raises(PermissionError, match="ALLOW_DESTRUCTIVE"):
+                await service.rename_collection("mydb", "users", "orders", drop_target=True)
 
     async def test_not_found_source(self, service, mock_client, patch_connected, patch_writable):
         mock_client.list_collection_names.return_value = ["orders", "products"]

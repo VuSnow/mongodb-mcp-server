@@ -20,6 +20,16 @@ class ServerConfigs(BaseSettings):
         description="When enabled, only read and metadata operations are allowed.",
     )
 
+    allow_destructive: bool = Field(
+        False,
+        alias="ALLOW_DESTRUCTIVE",
+        description=(
+            "When enabled (and READ_ONLY=false), allows destructive operations "
+            "such as delete_one, delete_many, drop_collection, drop_database, drop_index. "
+            "Default: false — only safe writes (insert, update, create) are allowed."
+        ),
+    )
+
     default_timeout_ms: Optional[int] = Field(
         30000,
         alias="DEFAULT_TIMEOUT_MS",

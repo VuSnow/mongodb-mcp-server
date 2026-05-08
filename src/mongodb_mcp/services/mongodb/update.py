@@ -110,6 +110,9 @@ class UpdateService(BaseMongoDBService):
         self._validate_name(collection, "Collection name")
         self._validate_name(new_name, "New collection name")
 
+        if drop_target:
+            self._check_destructive_allowed()
+
         if collection == new_name:
             return {"status": "error", "message": "New name must be different from the current name."}
 
