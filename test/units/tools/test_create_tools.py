@@ -13,6 +13,13 @@ def _get_fn(tool):
     return tool.fn
 
 
+def _unwrap(result):
+    """Unwrap tool result — handles both str and dict returns."""
+    if isinstance(result, dict):
+        return result.get("result", str(result))
+    return result
+
+
 @pytest.fixture
 def mock_mongodb_service():
     """Patch mongodb_service at tools layer."""
@@ -29,19 +36,19 @@ class TestInsertOneTool:
             "inserted_id": "abc123",
         })
 
-        result = await _get_fn(insert_one)("mydb", "users", '{"name": "Alice"}')
+        raw = await _get_fn(insert_one)("mydb", "users", '{"name": "Alice"}')
 
-        assert "Inserted 1 document" in result
-        assert "abc123" in result
-        assert "mydb.users" in result
+        assert "Inserted 1 document" in _unwrap(raw)
+        assert "abc123" in _unwrap(raw)
+        assert "mydb.users" in _unwrap(raw)
 
     async def test_invalid_json(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_one
 
-        result = await _get_fn(insert_one)("mydb", "users", "not json")
+        raw = await _get_fn(insert_one)("mydb", "users", "not json")
 
-        assert "Error" in result
-        assert "valid JSON" in result
+        assert "Error" in _unwrap(raw)
+        assert "valid JSON" in _unwrap(raw)
 
     async def test_service_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_one
@@ -51,10 +58,10 @@ class TestInsertOneTool:
             "message": "Document must be a non-empty JSON object.",
         })
 
-        result = await _get_fn(insert_one)("mydb", "users", '{}')
+        raw = await _get_fn(insert_one)("mydb", "users", '{}')
 
-        assert "Error" in result
-        assert "non-empty" in result
+        assert "Error" in _unwrap(raw)
+        assert "non-empty" in _unwrap(raw)
 
     async def test_permission_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_one
@@ -63,10 +70,10 @@ class TestInsertOneTool:
             side_effect=PermissionError("read-only mode")
         )
 
-        result = await _get_fn(insert_one)("mydb", "users", '{"a": 1}')
+        raw = await _get_fn(insert_one)("mydb", "users", '{"a": 1}')
 
-        assert "Error" in result
-        assert "read-only" in result
+        assert "Error" in _unwrap(raw)
+        assert "read-only" in _unwrap(raw)
 
 
 class TestInsertManyTool:
@@ -80,26 +87,26 @@ class TestInsertManyTool:
         })
 
         docs = json.dumps([{"a": 1}, {"b": 2}, {"c": 3}])
-        result = await _get_fn(insert_many)("mydb", "users", docs)
+        raw = await _get_fn(insert_many)("mydb", "users", docs)
 
-        assert "Inserted 3 documents" in result
-        assert "mydb.users" in result
+        assert "Inserted 3 documents" in _unwrap(raw)
+        assert "mydb.users" in _unwrap(raw)
 
     async def test_invalid_json(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_many
 
-        result = await _get_fn(insert_many)("mydb", "users", "{bad")
+        raw = await _get_fn(insert_many)("mydb", "users", "{bad")
 
-        assert "Error" in result
-        assert "valid JSON" in result
+        assert "Error" in _unwrap(raw)
+        assert "valid JSON" in _unwrap(raw)
 
     async def test_rejects_non_array(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_many
 
-        result = await _get_fn(insert_many)("mydb", "users", '{"a": 1}')
+        raw = await _get_fn(insert_many)("mydb", "users", '{"a": 1}')
 
-        assert "Error" in result
-        assert "JSON array" in result
+        assert "Error" in _unwrap(raw)
+        assert "JSON array" in _unwrap(raw)
 
     async def test_service_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import insert_many
@@ -110,10 +117,10 @@ class TestInsertManyTool:
         })
 
         docs = json.dumps([{"ok": 1}, "bad"])
-        result = await _get_fn(insert_many)("mydb", "users", docs)
+        raw = await _get_fn(insert_many)("mydb", "users", docs)
 
-        assert "Error" in result
-        assert "index 1" in result
+        assert "Error" in _unwrap(raw)
+        assert "index 1" in _unwrap(raw)
 
 
 class TestCreateCollectionTool:
@@ -126,11 +133,11 @@ class TestCreateCollectionTool:
             "collection": "products",
         })
 
-        result = await _get_fn(create_collection)("mydb", "products")
+        raw = await _get_fn(create_collection)("mydb", "products")
 
-        assert "products" in result
-        assert "created" in result
-        assert "mydb" in result
+        assert "products" in _unwrap(raw)
+        assert "created" in _unwrap(raw)
+        assert "mydb" in _unwrap(raw)
 
     async def test_already_exists(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import create_collection
@@ -140,10 +147,10 @@ class TestCreateCollectionTool:
             "message": "Collection 'users' already exists in database 'mydb'.",
         })
 
-        result = await _get_fn(create_collection)("mydb", "users")
+        raw = await _get_fn(create_collection)("mydb", "users")
 
-        assert "Error" in result
-        assert "already exists" in result
+        assert "Error" in _unwrap(raw)
+        assert "already exists" in _unwrap(raw)
 
     async def test_permission_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import create_collection
@@ -152,10 +159,10 @@ class TestCreateCollectionTool:
             side_effect=PermissionError("read-only mode")
         )
 
-        result = await _get_fn(create_collection)("mydb", "new_col")
+        raw = await _get_fn(create_collection)("mydb", "new_col")
 
-        assert "Error" in result
-        assert "read-only" in result
+        assert "Error" in _unwrap(raw)
+        assert "read-only" in _unwrap(raw)
 
 
 class TestCreateIndexTool:
@@ -170,27 +177,27 @@ class TestCreateIndexTool:
         })
 
         keys = json.dumps([["name", 1], ["age", -1]])
-        result = await _get_fn(create_index)("mydb", "users", keys)
+        raw = await _get_fn(create_index)("mydb", "users", keys)
 
-        assert "name_1_age_-1" in result
-        assert "created" in result
-        assert "mydb.users" in result
+        assert "name_1_age_-1" in _unwrap(raw)
+        assert "created" in _unwrap(raw)
+        assert "mydb.users" in _unwrap(raw)
 
     async def test_invalid_json_keys(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import create_index
 
-        result = await _get_fn(create_index)("mydb", "users", "not json")
+        raw = await _get_fn(create_index)("mydb", "users", "not json")
 
-        assert "Error" in result
-        assert "valid JSON" in result
+        assert "Error" in _unwrap(raw)
+        assert "valid JSON" in _unwrap(raw)
 
     async def test_keys_not_array(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import create_index
 
-        result = await _get_fn(create_index)("mydb", "users", '{"field": 1}')
+        raw = await _get_fn(create_index)("mydb", "users", '{"field": 1}')
 
-        assert "Error" in result
-        assert "JSON array" in result
+        assert "Error" in _unwrap(raw)
+        assert "JSON array" in _unwrap(raw)
 
     async def test_not_found_shows_suggestions(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import create_index
@@ -203,7 +210,7 @@ class TestCreateIndexTool:
         })
 
         keys = json.dumps([["name", 1]])
-        result = await _get_fn(create_index)("mydb", "uesrs", keys)
+        raw = await _get_fn(create_index)("mydb", "uesrs", keys)
 
-        assert "not found" in result.lower() or "Not found" in result
-        assert "users" in result
+        assert "not found" in _unwrap(raw).lower() or "Not found" in _unwrap(raw)
+        assert "users" in _unwrap(raw)

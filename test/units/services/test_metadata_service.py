@@ -242,3 +242,40 @@ class TestGetLogs:
         await service.get_logs("global", 9999)
 
         mock_mongodb_client.get_logs.assert_awaited_once_with("global", 1000)
+
+
+class TestCollectionStats:
+    """Tests for collection_stats — lazy resolve on empty/error."""
+
+    async def test_returns_stats(self, patch_connection_manager, mock_mongodb_client):
+        service = MetadataService()
+        result = await service.collection_stats("production", "users")
+
+        assert result["status"] == "ok"
+        assert result["stats"]["count"] == 1000
+        assert result["stats"]["storageSize"] == 4096000
+        mock_mongodb_client.collection_stats.assert_awaited_once()
+
+    async def test_not_found_on_exception(self, patch_connection_manager, mock_mongodb_client):
+        service = MetadataService()
+        mock_mongodb_client.collection_stats.side_effect = Exception("ns not found")
+
+        result = await service.collection_stats("production", "uesrs")
+
+        assert result["status"] == "not_found"
+        assert "suggestions" in result
+
+    async def test_empty_stats_resolves(self, patch_connection_manager, mock_mongodb_client):
+        service = MetadataService()
+        mock_mongodb_client.collection_stats.return_value = {}
+
+        result = await service.collection_stats("production", "users")
+
+        # "users" exists in mock list_collection_names, so it resolves as empty
+        assert result["status"] == "ok"
+        assert result["stats"] == {}
+
+    async def test_validates_empty_database(self, patch_connection_manager):
+        service = MetadataService()
+        with pytest.raises(ValueError, match="Database name"):
+            await service.collection_stats("", "users")

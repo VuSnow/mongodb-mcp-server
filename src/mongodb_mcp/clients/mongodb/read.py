@@ -33,3 +33,8 @@ class ReadClient(BaseMongoClient):
         """Count documents matching a filter."""
         col = self._client[database][collection]
         return await col.count_documents(filter or {})
+
+    async def distinct(self, database: str, collection: str, field: str, filter: dict[str, Any] | None = None) -> list[Any]:
+        """Get distinct values for a field, optionally filtered."""
+        col = self._client[database][collection]
+        return await col.distinct(field, filter or {})

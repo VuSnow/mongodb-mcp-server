@@ -55,11 +55,12 @@ mongodb-mcp-server/
 │       │       ├── __init__.py             # MongoDBService (composed) + singleton
 │       │       ├── base.py                 # BaseMongoDBService (ensure_connected, resolve_name, validation)
 │       │       ├── metadata.py             # MetadataService (list, schema, indexes, stats, explain, logs)
-│       │       └── create.py              # CreateService (insert, create_collection, create_index)
+│       │       ├── read.py                 # ReadService (find, aggregate, count_documents, distinct)
+│       │       └── create.py               # CreateService (insert, create_collection, create_index)
 │       │
 │       └── tools/                          # Tool definitions (thin layer, delegates to services)
 │           ├── __init__.py
-│           └── mongodb.py                  # All MongoDB MCP tools (connection + metadata)
+│           └── mongodb.py                  # All MongoDB MCP tools
 │
 └── test/
     ├── conftest.py                         # Shared fixtures, env setup
@@ -68,10 +69,12 @@ mongodb-mcp-server/
         │   ├── test_base_service.py
         │   ├── test_connection_manager.py
         │   ├── test_metadata_service.py
-        │   └── test_create_service.py
+        │   ├── test_create_service.py
+        │   └── test_read_service.py
         └── tools/
             ├── test_metadata_tools.py
-            └── test_create_tools.py
+            ├── test_create_tools.py
+            └── test_read_tools.py
 ```
 
 ## Architecture
@@ -113,8 +116,8 @@ mongodb-mcp-server/
 |-------|--------|-------------|
 | 1 | ✅ Done | Project setup: `pyproject.toml`, FastMCP server skeleton, config |
 | 2 | ✅ Done | Client layer: `MongoDBClient` (mixin-based) + `ConnectionManager` |
-| 3 | ✅ Done | Service layer + Metadata tools: list-databases, list-collections, collection-schema, db-stats, collection-indexes, explain, logs |
-| 4 | � In Progress | CRUD tools: ✅ create (insert, create_collection, create_index) · 🔲 read · 🔲 update · 🔲 delete |
+| 3 | ✅ Done | Service layer + Metadata tools: list-databases, list-collections, collection-schema, db-stats, collection-indexes, collection-stats, explain, logs |
+| 4 | 🔧 In Progress | CRUD tools: ✅ create (insert, create_collection, create_index) · ✅ read (find, aggregate, count_documents, distinct) · 🔲 update · 🔲 delete |
 
 ## Quick Start
 
@@ -251,6 +254,11 @@ WRITE_ALLOWLIST=*
 | `insert_many` | Insert multiple documents | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`documents` — JSON array of documents</li><li>`ordered` — Ordered insert. Default: `false`</li></ul> | No |
 | `create_collection` | Create a new collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li></ul> | No |
 | `create_index` | Create an index on a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`keys` — JSON array of `[field, direction]` pairs</li><li>`unique` — Unique index. Default: `false`</li><li>`name` — Custom index name (optional)</li></ul> | Yes (lazy) |
+| `find` | Query documents from a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`filter` — JSON filter. Default: `"{}"`</li><li>`projection` — JSON projection (optional)</li><li>`sort` — JSON array of `[field, direction]` pairs (optional)</li><li>`skip` — Documents to skip. Default: `0`</li><li>`limit` — Max documents. Default: `10`</li></ul> | Yes (lazy) |
+| `aggregate` | Run an aggregation pipeline | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`pipeline` — JSON array of stage objects</li><li>`limit` — Max results. Default: `1000`</li></ul> | Yes (lazy) |
+| `count_documents` | Count documents matching a filter | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`filter` — JSON filter. Default: `"{}"`</li></ul> | Yes (lazy) |
+| `distinct` | Get distinct values of a field | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li><li>`field` — Field name</li><li>`filter` — JSON filter. Default: `"{}"`</li></ul> | Yes (lazy) |
+| `collection_stats` | Get storage statistics for a collection | <ul><li>`database` — Database name</li><li>`collection` — Collection name</li></ul> | Yes (lazy) |
 
 > **Lazy resolve**: On happy path (correct name, data exists), no extra queries. Only when results are empty/error does the service resolve names and suggest fuzzy alternatives for user confirmation.
 >

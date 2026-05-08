@@ -38,6 +38,27 @@ def mock_mongodb_client():
         "logs": ["line1", "line2", "line3"],
         "total_lines_written": 100,
     })
+    client.find = AsyncMock(return_value=[
+        {"_id": "1", "name": "Alice", "age": 30},
+        {"_id": "2", "name": "Bob", "age": 25},
+    ])
+    client.aggregate = AsyncMock(return_value=[
+        {"_id": "active", "count": 42},
+    ])
+    client.count_documents = AsyncMock(return_value=100)
+    client.insert_one = AsyncMock()
+    client.insert_many = AsyncMock()
+    client.create_collection = AsyncMock()
+    client.create_index = AsyncMock()
+    client.distinct = AsyncMock(return_value=["active", "inactive", "pending"])
+    client.collection_stats = AsyncMock(return_value={
+        "count": 1000,
+        "size": 2048000,
+        "avgObjSize": 2048,
+        "storageSize": 4096000,
+        "totalIndexSize": 512000,
+        "nindexes": 3,
+    })
     return client
 
 

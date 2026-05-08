@@ -13,6 +13,13 @@ def _get_fn(tool):
     return tool.fn
 
 
+def _unwrap(result):
+    """Unwrap tool result — handles both str and dict returns."""
+    if isinstance(result, dict):
+        return result.get("result", str(result))
+    return result
+
+
 @pytest.fixture
 def mock_mongodb_service():
     """Patch mongodb_service at tools layer."""
@@ -32,11 +39,11 @@ class TestListDatabasesTool:
             ],
         })
 
-        result = await _get_fn(list_databases)()
+        raw = await _get_fn(list_databases)()
 
-        assert "Found 2 databases" in result
-        assert "production" in result
-        assert "test" in result
+        assert "Found 2 databases" in _unwrap(raw)
+        assert "production" in _unwrap(raw)
+        assert "test" in _unwrap(raw)
 
     async def test_handles_connection_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import list_databases
@@ -45,10 +52,10 @@ class TestListDatabasesTool:
             side_effect=ConnectionError("not connected")
         )
 
-        result = await _get_fn(list_databases)()
+        raw = await _get_fn(list_databases)()
 
-        assert "Error:" in result
-        assert "not connected" in result
+        assert "Error:" in _unwrap(raw)
+        assert "not connected" in _unwrap(raw)
 
 
 class TestListCollectionsTool:
@@ -61,10 +68,10 @@ class TestListCollectionsTool:
             "collections": ["users", "orders"],
         })
 
-        result = await _get_fn(list_collections)("mydb")
+        raw = await _get_fn(list_collections)("mydb")
 
-        assert "Found 2 collections" in result
-        assert "users" in result
+        assert "Found 2 collections" in _unwrap(raw)
+        assert "users" in _unwrap(raw)
 
     async def test_empty_collections(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import list_collections
@@ -75,9 +82,9 @@ class TestListCollectionsTool:
             "collections": [],
         })
 
-        result = await _get_fn(list_collections)("mydb")
+        raw = await _get_fn(list_collections)("mydb")
 
-        assert "Found 0 collections" in result
+        assert "Found 0 collections" in _unwrap(raw)
 
 
 class TestCollectionSchemaTool:
@@ -89,10 +96,10 @@ class TestCollectionSchemaTool:
             "documents": [{"_id": "1", "name": "Alice"}],
         })
 
-        result = await _get_fn(collection_schema)("mydb", "users")
+        raw = await _get_fn(collection_schema)("mydb", "users")
 
-        assert "Sampled 1 documents" in result
-        assert "Alice" in result
+        assert "Sampled 1 documents" in _unwrap(raw)
+        assert "Alice" in _unwrap(raw)
 
     async def test_not_found_shows_suggestions(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import collection_schema
@@ -104,13 +111,13 @@ class TestCollectionSchemaTool:
             "suggestions": ["users", "user_logs"],
         })
 
-        result = await _get_fn(collection_schema)("mydb", "uesrs")
+        raw = await _get_fn(collection_schema)("mydb", "uesrs")
 
-        assert "not found" in result
-        assert "Did you mean" in result
-        assert "users" in result
-        assert "user_logs" in result
-        assert "Please confirm" in result
+        assert "not found" in _unwrap(raw)
+        assert "Did you mean" in _unwrap(raw)
+        assert "users" in _unwrap(raw)
+        assert "user_logs" in _unwrap(raw)
+        assert "Please confirm" in _unwrap(raw)
 
     async def test_empty_collection(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import collection_schema
@@ -120,9 +127,9 @@ class TestCollectionSchemaTool:
             "documents": [],
         })
 
-        result = await _get_fn(collection_schema)("mydb", "users")
+        raw = await _get_fn(collection_schema)("mydb", "users")
 
-        assert "empty" in result
+        assert "empty" in _unwrap(raw)
 
 
 class TestCollectionIndexesTool:
@@ -134,10 +141,10 @@ class TestCollectionIndexesTool:
             "indexes": [{"name": "_id_", "key": {"_id": 1}}],
         })
 
-        result = await _get_fn(collection_indexes)("mydb", "users")
+        raw = await _get_fn(collection_indexes)("mydb", "users")
 
-        assert "Found 1 indexes" in result
-        assert "_id_" in result
+        assert "Found 1 indexes" in _unwrap(raw)
+        assert "_id_" in _unwrap(raw)
 
     async def test_not_found_shows_suggestions(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import collection_indexes
@@ -149,10 +156,10 @@ class TestCollectionIndexesTool:
             "suggestions": ["users"],
         })
 
-        result = await _get_fn(collection_indexes)("mydb", "uesrs")
+        raw = await _get_fn(collection_indexes)("mydb", "uesrs")
 
-        assert "not found" in result
-        assert "users" in result
+        assert "not found" in _unwrap(raw)
+        assert "users" in _unwrap(raw)
 
 
 class TestDbStatsTool:
@@ -164,10 +171,10 @@ class TestDbStatsTool:
             "stats": {"db": "mydb", "collections": 5},
         })
 
-        result = await _get_fn(db_stats)("mydb")
+        raw = await _get_fn(db_stats)("mydb")
 
-        assert "Stats for mydb" in result
-        assert "collections" in result
+        assert "Stats for mydb" in _unwrap(raw)
+        assert "collections" in _unwrap(raw)
 
     async def test_not_found(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import db_stats
@@ -179,10 +186,10 @@ class TestDbStatsTool:
             "suggestions": ["production"],
         })
 
-        result = await _get_fn(db_stats)("prodution")
+        raw = await _get_fn(db_stats)("prodution")
 
-        assert "not found" in result
-        assert "production" in result
+        assert "not found" in _unwrap(raw)
+        assert "production" in _unwrap(raw)
 
 
 class TestExplainQueryTool:
@@ -194,18 +201,18 @@ class TestExplainQueryTool:
             "plan": {"queryPlanner": {"winningPlan": "IXSCAN"}},
         })
 
-        result = await _get_fn(explain_query)("mydb", "users", "find", '{"filter": {}}')
+        raw = await _get_fn(explain_query)("mydb", "users", "find", '{"filter": {}}')
 
-        assert "Explain (find, queryPlanner)" in result
-        assert "IXSCAN" in result
+        assert "Explain (find, queryPlanner)" in _unwrap(raw)
+        assert "IXSCAN" in _unwrap(raw)
 
     async def test_invalid_json_args(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import explain_query
 
-        result = await _get_fn(explain_query)("mydb", "users", "find", "not json")
+        raw = await _get_fn(explain_query)("mydb", "users", "find", "not json")
 
-        assert "Error" in result
-        assert "valid JSON" in result
+        assert "Error" in _unwrap(raw)
+        assert "valid JSON" in _unwrap(raw)
 
     async def test_service_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import explain_query
@@ -215,10 +222,10 @@ class TestExplainQueryTool:
             "message": "Unsupported method: bad",
         })
 
-        result = await _get_fn(explain_query)("mydb", "users", "bad", '{}')
+        raw = await _get_fn(explain_query)("mydb", "users", "bad", '{}')
 
-        assert "Error" in result
-        assert "Unsupported method" in result
+        assert "Error" in _unwrap(raw)
+        assert "Unsupported method" in _unwrap(raw)
 
 
 class TestGetLogsTool:
@@ -231,10 +238,10 @@ class TestGetLogsTool:
             "total_lines_written": 500,
         })
 
-        result = await _get_fn(get_logs)("global", 50)
+        raw = await _get_fn(get_logs)("global", 50)
 
-        assert "Showing 2 of 500" in result
-        assert "log line 1" in result
+        assert "Showing 2 of 500" in _unwrap(raw)
+        assert "log line 1" in _unwrap(raw)
 
     async def test_service_error(self, mock_mongodb_service):
         from mongodb_mcp.tools.mongodb import get_logs
@@ -244,7 +251,57 @@ class TestGetLogsTool:
             "message": "Invalid log_type: bad",
         })
 
-        result = await _get_fn(get_logs)("bad")
+        raw = await _get_fn(get_logs)("bad")
 
-        assert "Error" in result
-        assert "Invalid log_type" in result
+        assert "Error" in _unwrap(raw)
+        assert "Invalid log_type" in _unwrap(raw)
+
+
+class TestCollectionStatsTool:
+    async def test_formats_stats(self, mock_mongodb_service):
+        from mongodb_mcp.tools.mongodb import collection_stats
+
+        mock_mongodb_service.collection_stats = AsyncMock(return_value={
+            "status": "ok",
+            "stats": {
+                "count": 1000,
+                "size": 2048000,
+                "avgObjSize": 2048,
+                "storageSize": 4096000,
+                "totalIndexSize": 512000,
+                "nindexes": 3,
+            },
+        })
+
+        raw = await _get_fn(collection_stats)("mydb", "users")
+
+        assert "Storage stats" in _unwrap(raw)
+        assert "1000" in _unwrap(raw)
+        assert "4096000" in _unwrap(raw)
+
+    async def test_not_found(self, mock_mongodb_service):
+        from mongodb_mcp.tools.mongodb import collection_stats
+
+        mock_mongodb_service.collection_stats = AsyncMock(return_value={
+            "status": "not_found",
+            "label": "Collection",
+            "name": "uesrs",
+            "suggestions": ["users"],
+        })
+
+        raw = await _get_fn(collection_stats)("mydb", "uesrs")
+
+        assert "not found" in _unwrap(raw).lower() or "Not found" in _unwrap(raw)
+        assert "users" in _unwrap(raw)
+
+    async def test_empty_stats(self, mock_mongodb_service):
+        from mongodb_mcp.tools.mongodb import collection_stats
+
+        mock_mongodb_service.collection_stats = AsyncMock(return_value={
+            "status": "ok",
+            "stats": {},
+        })
+
+        raw = await _get_fn(collection_stats)("mydb", "users")
+
+        assert "No storage stats" in _unwrap(raw)

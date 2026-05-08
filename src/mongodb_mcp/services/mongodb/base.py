@@ -1,4 +1,4 @@
-from typing import Callable, Awaitable, List
+from typing import Callable, Awaitable, Any, Dict, List
 from difflib import get_close_matches
 from dataclasses import dataclass, field
 from mongodb_mcp.services.connection_manager import connection_manager, ConnectionState
@@ -131,3 +131,40 @@ class BaseMongoDBService:
 
         logger.warning(f"[resolve] Name '{name}' does not exist. Returning {len(suggestions)} suggestions for user confirmation")
         return ResolveResult(found=False, name=name, suggestions=suggestions)
+
+    async def _get_db_names(self) -> List[str]:
+        """Fetch flat list of database names."""
+        client = await self._ensure_connected()
+        dbs = await client.list_database_names()
+        return [d["name"] for d in dbs]
+
+    async def _resolve_db_and_collection(self, database: str, collection: str) -> Dict[str, Any] | None:
+        """Resolve DB then collection. Returns not_found dict or None if both exist."""
+        logger.info(f"[resolve] Checking existence of db='{database}', collection='{collection}'")
+        client = await self._ensure_connected()
+
+        db_result = await self._resolve_name(database, self._get_db_names)
+        if not db_result.found:
+            logger.warning(f"[resolve] Database '{database}' not found — suggesting alternatives")
+            return {
+                "status": "not_found",
+                "label": "Database",
+                "name": db_result.name,
+                "suggestions": db_result.suggestions,
+            }
+
+        col_result = await self._resolve_name(
+            collection,
+            lambda: client.list_collection_names(database),
+        )
+        if not col_result.found:
+            logger.warning(f"[resolve] Collection '{collection}' not found in db='{database}' — suggesting alternatives")
+            return {
+                "status": "not_found",
+                "label": "Collection",
+                "name": col_result.name,
+                "suggestions": col_result.suggestions,
+            }
+
+        logger.debug(f"[resolve] Both db='{database}' and collection='{collection}' exist")
+        return None

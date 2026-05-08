@@ -1,4 +1,4 @@
-from typing import Any, List, Dict
+from typing import Any, Dict
 from .base import BaseMongoDBService
 
 import logging
@@ -8,45 +8,6 @@ logger = logging.getLogger(__name__)
 
 class MetadataService(BaseMongoDBService):
     """Service for metadata operations. Lazy resolve: only resolve on empty/error."""
-
-    async def _get_db_names(self) -> List[str]:
-        """Fetch flat list of database names."""
-        client = await self._ensure_connected()
-        dbs = await client.list_database_names()
-        return [d["name"] for d in dbs]
-
-    async def _resolve_db_and_collection(self, database: str, collection: str) -> Dict[str, Any] | None:
-        """Resolve DB then collection. Returns not_found dict or None if both exist."""
-        logger.info(f"[resolve] Checking existence of db='{database}', collection='{collection}'")
-        client = await self._ensure_connected()
-
-        db_result = await self._resolve_name(database, self._get_db_names)
-        if not db_result.found:
-            logger.warning(f"[resolve] Database '{database}' not found — suggesting alternatives")
-            return {
-                "status": "not_found",
-                "label": "Database",
-                "name": db_result.name,
-                "suggestions": db_result.suggestions,
-            }
-
-        col_result = await self._resolve_name(
-            collection,
-            lambda: client.list_collection_names(database),
-        )
-        if not col_result.found:
-            logger.warning(f"[resolve] Collection '{collection}' not found in db='{database}' — suggesting alternatives")
-            return {
-                "status": "not_found",
-                "label": "Collection",
-                "name": col_result.name,
-                "suggestions": col_result.suggestions,
-            }
-
-        logger.debug(f"[resolve] Both db='{database}' and collection='{collection}' exist")
-        return None
-
-    # ── No resolve ──
 
     async def list_databases(self) -> dict[str, Any]:
         logger.info("[list_databases] Fetching all databases")
@@ -76,8 +37,6 @@ class MetadataService(BaseMongoDBService):
         logs = await client.get_logs(log_type, limit)
         logger.info(f"[get_logs] Returned {len(logs.get('logs', []))} log lines")
         return {"status": "ok", **logs}
-
-    # ── Lazy resolve on empty/error ──
 
     async def collection_schema(self, database: str, collection: str, sample_size: int = 20) -> Dict[str, Any]:
         logger.info(f"[collection_schema] db='{database}', collection='{collection}', sample_size={sample_size}")
@@ -144,6 +103,31 @@ class MetadataService(BaseMongoDBService):
             raise
 
         logger.info(f"[db_stats] Success for db='{database}'")
+        return {"status": "ok", "stats": stats}
+
+    async def collection_stats(self, database: str, collection: str) -> Dict[str, Any]:
+        logger.info(f"[collection_stats] db='{database}', collection='{collection}'")
+        self._validate_name(database, "Database name")
+        self._validate_name(collection, "Collection name")
+        client = await self._ensure_connected()
+
+        try:
+            stats = await client.collection_stats(database, collection)
+        except Exception as e:
+            logger.error(f"[collection_stats] Exception for {database}.{collection}: {e}", exc_info=True)
+            not_found = await self._resolve_db_and_collection(database, collection)
+            if not_found:
+                return not_found
+            raise
+
+        if not stats:
+            logger.info(f"[collection_stats] Empty stats for {database}.{collection} — triggering resolve")
+            not_found = await self._resolve_db_and_collection(database, collection)
+            if not_found:
+                return not_found
+            return {"status": "ok", "stats": {}}
+
+        logger.info(f"[collection_stats] Success for {database}.{collection}")
         return {"status": "ok", "stats": stats}
 
     async def explain(self, database: str, collection: str, method: str, args: Dict[str, Any], verbosity: str = "queryPlanner") -> Dict[str, Any]:

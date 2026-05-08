@@ -27,17 +27,14 @@ class MetadataClient(BaseMongoClient):
         cursor = col.aggregate([{"$sample": {"size": sample_size}}])
         return await cursor.to_list(length=sample_size)
     
-    async def collection_storage_size(self, database: str, collection: str) -> int:
-        """Get storage size of a collection in bytes."""
+    async def collection_stats(self, database: str, collection: str) -> dict[str, Any]:
+        """Get collection stats via collStats aggregate stage."""
         col = self._client[database][collection]
-        cursor = col.aggregate([
-            {"$collStats": {"storageStats": {}}},
-            {"$group": {"_id": None, "value": {"$sum": "$storageStats.size"}}},
-        ])
+        cursor = col.aggregate([{"$collStats": {"storageStats": {}}}])
         results = await cursor.to_list(length=1)
-        if results:
-            return results[0]["value"]
-        return 0
+        if results and "storageStats" in results[0]:
+            return results[0]["storageStats"]
+        return {}
     
     async def db_stats(self, database: str) -> Dict[str, Any]:
         """Get statistics for a database."""
