@@ -61,8 +61,16 @@ mongodb-mcp-server/
 │       │       └── delete.py               # DeleteService (delete_one, delete_many, drop_collection, drop_database, drop_index)
 │       │
 │       └── tools/                          # Tool definitions (thin layer, delegates to services)
-│           ├── __init__.py
-│           └── mongodb.py                  # All MongoDB MCP tools
+│           ├── __init__.py                 # Logging setup
+│           ├── connection.py               # connect, disconnect
+│           └── mongodb/                    # MongoDB tools package
+│               ├── __init__.py             # Re-exports all tools + side-effect imports
+│               ├── _utils.py               # _format_not_found helper
+│               ├── metadata.py             # list_databases, list_collections, collection_schema, collection_indexes, db_stats, explain_query, get_logs, collection_stats
+│               ├── create.py               # insert_one, insert_many, create_collection, create_index
+│               ├── read.py                 # find, aggregate, count_documents, distinct
+│               ├── update.py               # update_one, update_many, rename_collection
+│               └── delete.py              # delete_one, delete_many, drop_collection, drop_database, drop_index
 │
 └── test/
     ├── conftest.py                         # Shared fixtures, env setup

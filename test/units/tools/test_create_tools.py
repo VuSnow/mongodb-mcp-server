@@ -23,7 +23,7 @@ def _unwrap(result):
 @pytest.fixture
 def mock_mongodb_service():
     """Patch mongodb_service at tools layer."""
-    with patch("mongodb_mcp.tools.mongodb.mongodb_service") as mock_svc:
+    with patch("mongodb_mcp.tools.mongodb.create.mongodb_service") as mock_svc:
         yield mock_svc
 
 
